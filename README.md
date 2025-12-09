@@ -78,10 +78,10 @@ Pengujian dilakukan menggunakan sistem operasi **Kali Linux** (`10.185.29.164`) 
 
 ---
 
-## ⚔️ Kerentanan 1: Authentication Bypass (IDOR)
+## ⚔️ Kerentanan 1: Authentication Bypass
 
-### Apa itu IDOR?
-**Insecure Direct Object Reference (IDOR)** atau dalam kasus ini *Broken Access Control*, terjadi ketika aplikasi memberikan akses ke fungsi perangkat keras (motor) berdasarkan input pengguna tanpa memvalidasi otorisasi. Pada perangkat ini, API endpoint `/action` terekspos tanpa proteksi password. 
+### Apa itu Authentication Bypass
+**Authentication Bypass** terjadi ketika sistem gagal memverifikasi identitas pengguna sebelum memberikan akses ke fungsi sensitif. Pada perangkat ini, kerentanan muncul karena endpoint API /action dapat diakses secara langsung tanpa mekanisme validasi (seperti session check, token, atau password). Akibatnya, sistem tidak membedakan antara permintaan dari administrator yang sah atau penyerang; selama URL dipanggil, perintah motor akan dieksekusi.
 
 ### 🚀 Langkah-Langkah Pengujian
 
@@ -200,7 +200,7 @@ if __name__ == "__main__":
 ```
 
 #### 2. Hasil
-Setelah beberapa detik, web server berhenti merespons. Browser menampilkan **Connection timed out**, dan cURL gagal menjalin koneksi baru.
+Setelah 3 - 5 detik, web server berhenti merespons. Browser menampilkan **Connection timed out**, dan cURL gagal menjalin koneksi baru.
 
 | Eksekusi Serangan DoS | Hasil Serangan DoS pada Sistem |
 |------------------------|-------------------------------|
@@ -259,8 +259,11 @@ ESP8266 pada konfigurasi default tidak dirancang untuk menghadapi ancaman jaring
 
 ## 🛡️ Saran Mitigasi
 
-1. **Tambah Autentikasi:** Gunakan token, sesi, atau minimal password untuk endpoint sensitif.  
-2. **Implementasi Rate Limiting:** Tutup koneksi idle dan batasi jumlah koneksi simultan.  
-3. **Gunakan HTTPS atau WPA2-Enterprise:** Jika HTTPS tidak memungkinkan, pastikan jaringan terisolasi.  
-4. **Validasi Input:** Batasi nilai parameter `go` hanya pada daftar perintah valid.  
-5. **Segregasi Jaringan:** Tempatkan perangkat IoT pada VLAN atau segmen khusus.
+| No | Strategi Mitigasi | Detail Implementasi |
+| :---: | :--- | :--- |
+| 1 | **Tambah Autentikasi** | Gunakan token, sesi, atau minimal password untuk endpoint sensitif. |
+| 2 | **Implementasi Rate Limiting** | Tutup koneksi idle dan batasi jumlah koneksi simultan. |
+| 3 | **Gunakan HTTPS atau WPA2-Enterprise** | Jika HTTPS tidak memungkinkan, pastikan jaringan terisolasi. |
+| 4 | **Validasi Input** | Batasi nilai parameter `go` hanya pada daftar perintah valid. |
+| 5 | **Segregasi Jaringan** | Tempatkan perangkat IoT pada VLAN atau segmen khusus. |
+| 6 | **Implementasi Watchdog Timer (WDT)** | Mengaktifkan fitur Hardware Watchdog Timer pada kode firmware ESP8266. Jika perangkat mengalami freeze atau hang akibat serangan DoS (socket exhaustion), WDT akan mendeteksi kemacetan sistem dan memaksa mikrokontroler untuk melakukan restart otomatis. Hal ini memastikan perangkat dapat pulih sendiri (self-recovery) tanpa perlu dimatikan manual. |
