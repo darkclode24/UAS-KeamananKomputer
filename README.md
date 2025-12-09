@@ -1,13 +1,18 @@
-# 🛡️ Penetration Testing: Automatic Clothesline Control (ESP8266) Laporan analisis keamanan pada perangkat IoT "Jemuran Otomatis Pintar" berbasis ESP8266 terhadap kerentanan Authentication Bypass, Denial of Service (DoS), dan Network Sniffing. ---
+d# 🛡️ Penetration Testing: Automatic Clothesline Control (ESP8266) Laporan analisis keamanan pada perangkat IoT "Jemuran Otomatis Pintar" berbasis ESP8266 terhadap kerentanan Authentication Bypass, Denial of Service (DoS), dan Network Sniffing. ---
 
-## 👥 Anggota Kelompok II Berikut adalah tim yang terlibat dalam penyusunan laporan dan pengujian ini: | No | Nama | NIM |
-|----|------|-----|
-| 1. | **Bintang Darmawan** | 09030000000000 |
-| 2. | **Hana Zakiyah Nur Aliyah** | 09030282327053 |
-| 3. | **Niken Carolin** | 09030282327071 |
-| 4. | **Sania Apriza** | 09030282327059 |
-| 5. | **Daniel Juankarel P. S.** | 09030000000000 |
-| 6. | **Ario Faturrahmat** | 09030000000000 |
+## 👥 Anggota Kelompok II
+
+Berikut adalah tim yang terlibat dalam penyusunan laporan dan pengujian ini:
+
+| No | Nama                         | NIM            |
+|----|------------------------------|----------------|
+| 1  | **Bintang Darmawan**         | 09030000000000 |
+| 2  | **Hana Zakiyah Nur Aliyah**  | 09030282327053 |
+| 3  | **Niken Carolin**            | 09030282327071 |
+| 4  | **Sania Apriza**             | 09030282327059 |
+| 5  | **Daniel Juankarel P. S.**   | 09030000000000 |
+| 6  | **Ario Faturrahmat**         | 09030000000000 |
+
 
 ---
 
