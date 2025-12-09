@@ -243,11 +243,11 @@ Aktor pasif dalam jaringan dapat mengetahui kapan pengguna menekan tombol dan da
 
 ## 🔍 Ringkasan Kerentanan
 
-| Kerentanan                    | Dampak Utama                                          | Tingkat Risiko |
-|------------------------------|--------------------------------------------------------|----------------|
-| Authentication Bypass (IDOR) | Motor dapat dikendalikan pihak tidak sah               | Tinggi         |
-| DoS: Socket Exhaustion       | Panel kontrol tidak tersedia bagi pengguna sah         | Sedang-Tinggi  |
-| Sniffing (No Encryption)     | Data perintah dapat dicuri dan dipalsukan              | Sedang         |
+| Kerentanan                    | Dampak Utama                                     | Tingkat Risiko |
+|------------------------------|---------------------------------------------------|----------------|
+| Authentication Bypass   | Motor dapat dikendalikan pihak tidak sah               | Tinggi         |
+| Denial of Service       | Panel kontrol tidak tersedia bagi pengguna sah         | Sedang-Tinggi  |
+| Sniffing                | Data perintah dapat dicuri dan dipalsukan              | Sedang         |
 
 ---
 
